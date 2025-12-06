@@ -50,3 +50,4 @@ emsdk/
 docs/output/
 wasm/preload/*
 !wasm/preload/runhere
+.DS_Store
