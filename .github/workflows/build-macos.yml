@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - ogg-support
   pull_request:
 
 jobs:
