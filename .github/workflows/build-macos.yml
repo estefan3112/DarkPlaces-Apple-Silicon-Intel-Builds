@@ -1,4 +1,4 @@
-name: macOS Intel Darkplaces Builds
+name: macOS Darkplaces Builds
 
 on:
   push:
@@ -26,7 +26,9 @@ jobs:
           pkg-config \
           cmake \
           automake \
-          autoconf
+          autoconf \
+          libogg \
+          libvorbis
 
     - name: Build Darkplaces (ARM64)
       run: |
@@ -36,15 +38,70 @@ jobs:
         export PKG_CONFIG_PATH="$HOMEBREW_PREFIX/opt/jpeg/lib/pkgconfig:$HOMEBREW_PREFIX/opt/zlib/lib/pkgconfig"
         make -j$(sysctl -n hw.ncpu) sdl-release
 
-    - name: Upload ARM64 artifact
+    - name: Bundle + Patch dylibs (ARM64)
+      run: |
+        set -euo pipefail
+
+        APP="Darkplaces.app"
+        MACOS="$APP/Contents/MacOS"
+        FRAMEWORKS="$APP/Contents/Frameworks"
+
+        echo "=== Create bundle structure ==="
+        mkdir -p "$MACOS" "$FRAMEWORKS"
+
+        echo "=== Copy executable ==="
+        cp -v darkplaces-sdl "$MACOS/"
+
+        echo "=== Copy dylibs ==="
+        OGG_PREFIX="$(brew --prefix libogg)"
+        VORBIS_PREFIX="$(brew --prefix libvorbis)"
+
+        cp -v "$OGG_PREFIX/lib/libogg.0.dylib" \
+              "$VORBIS_PREFIX/lib/libvorbis.0.dylib" \
+              "$VORBIS_PREFIX/lib/libvorbisfile.3.dylib" \
+              "$FRAMEWORKS/"
+
+        echo "=== Patch dylib references dynamically ==="
+        for FILE in "$MACOS/darkplaces-sdl" \
+                    "$FRAMEWORKS/libvorbisfile.3.dylib" \
+                    "$FRAMEWORKS/libvorbis.0.dylib"; do
+
+          echo "--- Patching $FILE ---"
+
+          OLD_VORBIS="$(otool -L "$FILE" | awk '/libvorbis\.0/ {print $1}')"
+          if [[ -n "$OLD_VORBIS" ]]; then
+            install_name_tool -change "$OLD_VORBIS" "@executable_path/../Frameworks/libvorbis.0.dylib" "$FILE"
+          fi
+
+          OLD_VORBISFILE="$(otool -L "$FILE" | awk '/libvorbisfile\.3/ {print $1}')"
+          if [[ -n "$OLD_VORBISFILE" ]]; then
+            install_name_tool -change "$OLD_VORBISFILE" "@executable_path/../Frameworks/libvorbisfile.3.dylib" "$FILE"
+          fi
+
+          OLD_OGG="$(otool -L "$FILE" | awk '/libogg\.0/ {print $1}')"
+          if [[ -n "$OLD_OGG" ]]; then
+            install_name_tool -change "$OLD_OGG" "@executable_path/../Frameworks/libogg.0.dylib" "$FILE"
+          fi
+        done
+
+        echo "=== DYLD Sanity Check ==="
+        if otool -L -R "$APP" | grep -q "/opt/homebrew"; then
+          echo "ERROR: Homebrew paths still present!"
+          otool -L -R "$APP" | grep "/opt/homebrew"
+          exit 1
+        fi
+
+        echo "Bundle is clean and self-contained."
+
+    - name: Upload ARM64 .app bundle
       uses: actions/upload-artifact@v4
       with:
-        name: darkplaces-sdl-arm64
-        path: ./darkplaces-sdl
+        name: Darkplaces-arm64-app
+        path: ./Darkplaces.app
 
 
   darkplaces-intel:
-    runs-on: macos-15-intel   # new Intel runner
+    runs-on: macos-15-intel   # Intel runner
 
     steps:
     - name: Checkout source
@@ -61,7 +118,9 @@ jobs:
           pkg-config \
           cmake \
           automake \
-          autoconf
+          autoconf \
+          libogg \
+          libvorbis
 
     - name: Build Darkplaces (Intel)
       run: |
@@ -71,8 +130,64 @@ jobs:
         export PKG_CONFIG_PATH="$HOMEBREW_PREFIX/opt/jpeg/lib/pkgconfig:$HOMEBREW_PREFIX/opt/zlib/lib/pkgconfig"
         make -j$(sysctl -n hw.ncpu) sdl-release
 
-    - name: Upload Intel artifact
+    - name: Bundle + Patch dylibs (Intel)
+      run: |
+        set -euo pipefail
+
+        APP="Darkplaces.app"
+        MACOS="$APP/Contents/MacOS"
+        FRAMEWORKS="$APP/Contents/Frameworks"
+
+        echo "=== Create bundle structure ==="
+        mkdir -p "$MACOS" "$FRAMEWORKS"
+
+        echo "=== Copy executable ==="
+        cp -v darkplaces-sdl "$MACOS/"
+
+        echo "=== Copy dylibs ==="
+        OGG_PREFIX="$(brew --prefix libogg)"
+        VORBIS_PREFIX="$(brew --prefix libvorbis)"
+
+        cp -v "$OGG_PREFIX/lib/libogg.0.dylib" \
+              "$VORBIS_PREFIX/lib/libvorbis.0.dylib" \
+              "$VORBIS_PREFIX/lib/libvorbisfile.3.dylib" \
+              "$FRAMEWORKS/"
+
+        echo "=== Patch dylib references dynamically ==="
+        for FILE in "$MACOS/darkplaces-sdl" \
+                    "$FRAMEWORKS/libvorbisfile.3.dylib" \
+                    "$FRAMEWORKS/libvorbis.0.dylib"; do
+
+          echo "--- Patching $FILE ---"
+
+          OLD_VORBIS="$(otool -L "$FILE" | awk '/libvorbis\.0/ {print $1}')"
+          if [[ -n "$OLD_VORBIS" ]]; then
+            install_name_tool -change "$OLD_VORBIS" "@executable_path/../Frameworks/libvorbis.0.dylib" "$FILE"
+          fi
+
+          OLD_VORBISFILE="$(otool -L "$FILE" | awk '/libvorbisfile\.3/ {print $1}')"
+          if [[ -n "$OLD_VORBISFILE" ]]; then
+            install_name_tool -change "$OLD_VORBISFILE" "@executable_path/../Frameworks/libvorbisfile.3.dylib" "$FILE"
+          fi
+
+          OLD_OGG="$(otool -L "$FILE" | awk '/libogg\.0/ {print $1}')"
+          if [[ -n "$OLD_OGG" ]]; then
+            install_name_tool -change "$OLD_OGG" "@executable_path/../Frameworks/libogg.0.dylib" "$FILE"
+          fi
+        done
+
+        echo "=== DYLD Sanity Check ==="
+        if otool -L -R "$APP" | grep -q "/usr/local"; then
+          echo "ERROR: Homebrew paths still present!"
+          otool -L -R "$APP" | grep "/usr/local"
+          exit 1
+        fi
+
+        echo "Bundle is clean and self-contained."
+
+    - name: Upload Intel .app bundle
       uses: actions/upload-artifact@v4
       with:
-        name: darkplaces-sdl-intel
-        path: ./darkplaces-sdl
+        name: Darkplaces-intel-app
+        path: ./Darkplaces.app
+
