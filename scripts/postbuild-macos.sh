@@ -7,6 +7,8 @@ echo "=== DarkPlaces macOS post-build script ==="
 APP="Darkplaces.app"
 MACOS="$APP/Contents/MacOS"
 FRAMEWORKS="$APP/Contents/Frameworks"
+VORBISFILE="$FRAMEWORKS/libvorbisfile.3.dylib"
+VORBIS="$FRAMEWORKS/libvorbis.0.dylib"
 
 # Detect Homebrew prefix (ARM vs Intel)
 if [ -d /opt/homebrew ]; then
@@ -50,5 +52,25 @@ for dylib in "${DYLIBS[@]}"; do
     base=$(basename "$dylib")
     install_name_tool -id "@executable_path/../Frameworks/$base" "$FRAMEWORKS/$base"
 done
+
+echo "=== Fixing libvorbisfile internal deps (dynamic) ==="
+
+OLD_VORBIS_PATH="$(otool -L "$VORBISFILE" | awk '/libvorbis\.0/ {print $1}')"
+OLD_OGG_PATH="$(otool -L "$VORBISFILE" | awk '/libogg\.0/ {print $1}')"
+
+install_name_tool -change "$OLD_VORBIS_PATH" "@executable_path/../Frameworks/libvorbis.0.dylib" "$VORBISFILE"
+install_name_tool -change "$OLD_OGG_PATH"    "@executable_path/../Frameworks/libogg.0.dylib"    "$VORBISFILE"
+
+echo "=== Fixing libvorbis internal deps (dynamic) ==="
+
+OLD_OGG_IN_VORBIS="$(otool -L "$VORBIS" | awk '/libogg\.0/ {print $1}')"
+install_name_tool -change "$OLD_OGG_IN_VORBIS" "@executable_path/../Frameworks/libogg.0.dylib" "$VORBIS"
+
+echo "=== Clearing attributes and signing ==="
+sudo xattr -cr "$APP"
+
+# Force Finder/Spotlight to refresh bundle metadata
+touch Darkplaces.app
+touch Darkplaces.app/Contents
 
 echo "=== Post-build complete. App bundle is ready. ==="
