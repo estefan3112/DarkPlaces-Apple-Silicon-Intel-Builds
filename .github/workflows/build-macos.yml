@@ -94,6 +94,10 @@ jobs:
 
         echo "Bundle is clean and self-contained."
 
+    - name: Zip app bundle
+      run: |
+        ditto -c -k --sequesterRsrc --keepParent Darkplaces.app Darkplaces.zip
+
     - name: Upload ARM64 .app bundle
       uses: actions/upload-artifact@v4
       with:
@@ -185,6 +189,10 @@ jobs:
         fi
 
         echo "Bundle is clean and self-contained."
+
+    - name: Zip app bundle
+      run: |
+        ditto -c -k --sequesterRsrc --keepParent Darkplaces.app Darkplaces.zip
 
     - name: Upload Intel .app bundle
       uses: actions/upload-artifact@v4
