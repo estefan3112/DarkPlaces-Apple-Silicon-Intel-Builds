@@ -42,8 +42,7 @@ jobs:
     - name: Bundle + Patch dylibs (ARM64)
       run: |
         set -euo pipefail
-
-        APP="Darkplaces.app"
+        APP="$GITHUB_WORKSPACE/Darkplaces.app"
         MACOS="$APP/Contents/MacOS"
         FRAMEWORKS="$APP/Contents/Frameworks"
 
@@ -96,7 +95,7 @@ jobs:
 
     - name: Zip app bundle
       run: |
-        ditto -c -k --sequesterRsrc --keepParent Darkplaces.app Darkplaces.zip
+        ditto -c -k --sequesterRsrc --keepParent "$APP" Darkplaces.zip
 
     - name: Upload ARM64 .app bundle
       uses: actions/upload-artifact@v4
@@ -139,7 +138,7 @@ jobs:
       run: |
         set -euo pipefail
 
-        APP="Darkplaces.app"
+        APP="$GITHUB_WORKSPACE/Darkplaces.app"
         MACOS="$APP/Contents/MacOS"
         FRAMEWORKS="$APP/Contents/Frameworks"
 
@@ -192,7 +191,7 @@ jobs:
 
     - name: Zip app bundle
       run: |
-        ditto -c -k --sequesterRsrc --keepParent Darkplaces.app Darkplaces.zip
+        ditto -c -k --sequesterRsrc --keepParent "$APP" Darkplaces.zip
 
     - name: Upload Intel .app bundle
       uses: actions/upload-artifact@v4
