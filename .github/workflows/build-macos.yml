@@ -1,17 +1,17 @@
 name: macOS Darkplaces Builds
 
+# Runs only when started by hand: Actions tab -> macOS Darkplaces Builds -> Run workflow
 on:
-  push:
-    branches:
-      - macos
-      - ogg-fix
-  pull_request:
   workflow_dispatch:
-
-# A new push cancels a still-running build of the same branch
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    inputs:
+      release:
+        description: "Publish a GitHub release (tag + downloads) from this build"
+        type: boolean
+        default: false
+      version:
+        description: "Release version, e.g. 1.1 (leave empty for today's date, e.g. 2026.11.03)"
+        type: string
+        default: ""
 
 jobs:
   build:
@@ -85,3 +85,61 @@ jobs:
         # upload our own ditto zip as-is: no extra GitHub zip around it
         # (Archive Utility chokes on GitHub's wrapper zip)
         archive: false
+
+
+  # ------------------------------------------------------------------
+  #  Release: only when started by hand with "Publish release" ticked.
+  #  Runs after both builds succeeded, creates the tag and the release
+  #  and attaches the signed and notarized zips.
+  # ------------------------------------------------------------------
+  release:
+    needs: build
+    if: inputs.release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to create the tag and the release
+
+    steps:
+    - name: Download the zips of both builds
+      uses: actions/download-artifact@v8
+      with:
+        pattern: Darkplaces-*
+        path: dist
+
+    - name: Create tag and release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        tag="${VERSION:-$(date -u +%Y.%m.%d)}"
+        if gh release view "$tag" > /dev/null 2>&1; then
+          echo "ERROR: a release '$tag' already exists - run again with another version"
+          exit 1
+        fi
+
+        mapfile -t zips < <(find dist -type f -name 'Darkplaces-*.zip' | sort)
+        if [[ ${#zips[@]} -ne 2 ]]; then
+          echo "ERROR: expected 2 zips, found ${#zips[@]}:"; printf '  %s\n' "${zips[@]}"
+          exit 1
+        fi
+
+        cat > notes.md <<NOTES
+        DarkPlaces for macOS, signed with Developer ID and notarized by Apple.
+
+        | Download | For |
+        |---|---|
+        | \`Darkplaces-arm64.zip\` | Apple Silicon Macs (M1 and newer) |
+        | \`Darkplaces-intel.zip\` | Intel Macs |
+
+        - Requires macOS 15 (Sequoia) or newer
+        - Self-contained: SDL2/SDL3 and Ogg/Vorbis (.ogg music) are bundled, nothing to install
+        - Built from commit ${GITHUB_SHA:0:8}, including upstream DarkPlacesEngine/DarkPlaces up to this point
+        NOTES
+
+        # --target creates the tag on exactly the commit that was built
+        gh release create "$tag" "${zips[@]}" \
+          --target "$GITHUB_SHA" \
+          --title "DarkPlaces for macOS $tag" \
+          --notes-file notes.md
