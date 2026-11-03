@@ -32,6 +32,7 @@ Makefile.win
 *.dylib
 *.dSYM
 .vscode
+.theia
 *.code-workspace
 .ccls-cache
 *.gch
