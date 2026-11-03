@@ -3,7 +3,7 @@ name: macOS Intel Darkplaces Builds
 on:
   push:
     branches:
-      - master
+      - macos
   pull_request:
 
 jobs:
