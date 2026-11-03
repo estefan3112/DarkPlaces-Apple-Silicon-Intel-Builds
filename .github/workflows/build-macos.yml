@@ -49,7 +49,7 @@ jobs:
         make -j"$(sysctl -n hw.ncpu)" sdl-release
 
     - name: Bundle Darkplaces.app (SDL2 + Ogg/Vorbis included)
-      run: scripts/bundle-macos.sh
+      run: bash scripts/bundle-macos.sh
 
     - name: Check minimum macOS version of all binaries
       run: |
@@ -61,8 +61,21 @@ jobs:
           echo "ERROR: a bundled file requires a newer macOS than $MACOSX_DEPLOYMENT_TARGET"; exit 1
         fi
 
-    - name: Zip app bundle
-      run: ditto -c -k --sequesterRsrc --keepParent Darkplaces.app "Darkplaces-${{ matrix.arch }}.zip"
+    - name: Sign, notarize and zip
+      env:
+        MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+        MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+      run: |
+        if [[ -n "$MACOS_CERTIFICATE" ]]; then
+          bash scripts/sign-notarize-macos.sh "${{ matrix.arch }}"
+        else
+          # no secrets (e.g. pull requests from other forks): ad-hoc signed zip only
+          echo "::warning::No signing secrets available - uploading an unsigned (ad-hoc) build"
+          ditto -c -k --sequesterRsrc --keepParent Darkplaces.app "Darkplaces-${{ matrix.arch }}.zip"
+        fi
 
     - name: Upload app bundle
       uses: actions/upload-artifact@v7
