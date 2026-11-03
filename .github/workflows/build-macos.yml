@@ -20,11 +20,15 @@ jobs:
       matrix:
         include:
           - arch: arm64
-            runner: macos-latest     # Apple Silicon
+            runner: macos-15         # Apple Silicon (pinned; macos-latest queues badly)
           - arch: intel
             runner: macos-15-intel   # Intel
 
     runs-on: ${{ matrix.runner }}
+    env:
+      # Oldest macOS the app supports; keep in sync with LSMinimumSystemVersion
+      # in Darkplaces.app/Contents/Info.plist and with the runner images above
+      MACOSX_DEPLOYMENT_TARGET: "15.0"
     name: Darkplaces (${{ matrix.arch }})
 
     steps:
@@ -46,6 +50,16 @@ jobs:
 
     - name: Bundle Darkplaces.app (SDL2 + Ogg/Vorbis included)
       run: scripts/bundle-macos.sh
+
+    - name: Check minimum macOS version of all binaries
+      run: |
+        otool -l Darkplaces.app/Contents/MacOS/darkplaces-sdl Darkplaces.app/Contents/Frameworks/*.dylib \
+          | awk '/minos/ {print $2}' | sort -uV | tee minos.txt
+        if awk -v t="$MACOSX_DEPLOYMENT_TARGET" '{ split($1,a,"."); split(t,b,"."); if (a[1]+0 > b[1]+0) bad=1 } END { exit bad }' minos.txt; then
+          echo "OK: nothing requires more than macOS $MACOSX_DEPLOYMENT_TARGET"
+        else
+          echo "ERROR: a bundled file requires a newer macOS than $MACOSX_DEPLOYMENT_TARGET"; exit 1
+        fi
 
     - name: Zip app bundle
       run: ditto -c -k --sequesterRsrc --keepParent Darkplaces.app "Darkplaces-${{ matrix.arch }}.zip"
