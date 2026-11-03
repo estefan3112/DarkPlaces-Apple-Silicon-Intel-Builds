@@ -268,7 +268,9 @@ SDLCONFIG_UNIXSTATICLIBS?=`$(SDL_CONFIG) --static-libs`
 SDLCONFIG_UNIXSTATICLIBS_X11?=-lX11
 SDLCONFIG_MACOSXCFLAGS=$(SDLCONFIG_UNIXCFLAGS)
 SDLCONFIG_MACOSXLIBS=$(SDLCONFIG_UNIXLIBS)
-SDLCONFIG_MACOSXSTATICLIBS=$(SDLCONFIG_UNIXSTATICLIBS)
+# Homebrew's sdl2 is now sdl2-compat, whose sdl2-config has no --static-libs.
+# Link SDL2 dynamically on macOS; the .app bundle ships the dylibs (scripts/bundle-macos.sh).
+SDLCONFIG_MACOSXSTATICLIBS=$(SDLCONFIG_UNIXLIBS)
 ifeq ($(DP_LINK_SDL), shared)
 	SDL_LIBS=$(SDLCONFIG_LIBS)
 else ifeq ($(DP_LINK_SDL), static)

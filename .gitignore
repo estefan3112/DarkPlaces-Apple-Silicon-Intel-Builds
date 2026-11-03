@@ -51,3 +51,8 @@ docs/output/
 wasm/preload/*
 !wasm/preload/runhere
 .DS_Store
+
+# macOS app bundle build output (created by scripts/bundle-macos.sh)
+Darkplaces.app/Contents/MacOS/
+Darkplaces.app/Contents/Frameworks/
+Darkplaces.app/Contents/_CodeSignature/
