@@ -273,6 +273,8 @@ qbool OGG_OpenLibrary (void)
 		"libvorbis.dll",
 		"vorbis.dll",
 #elif defined(MACOSX)
+		"@executable_path/../Frameworks/libvorbis.0.dylib", // bundled in the .app
+		"libvorbis.0.dylib",
 		"libvorbis.dylib",
 #else
 		"libvorbis.so.0",
@@ -287,6 +289,8 @@ qbool OGG_OpenLibrary (void)
 		"libvorbisfile.dll",
 		"vorbisfile.dll",
 #elif defined(MACOSX)
+		"@executable_path/../Frameworks/libvorbisfile.3.dylib", // bundled in the .app
+		"libvorbisfile.3.dylib",
 		"libvorbisfile.dylib",
 #else
 		"libvorbisfile.so.3",

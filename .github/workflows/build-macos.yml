@@ -1,78 +1,52 @@
-name: macOS Intel Darkplaces Builds
+name: macOS Darkplaces Builds
 
 on:
   push:
     branches:
       - macos
+      - ogg-fix
   pull_request:
+  workflow_dispatch:
 
 jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-latest     # Apple Silicon
+          - arch: intel
+            runner: macos-15-intel   # Intel
 
-  darkplaces-arm64:
-    runs-on: macos-latest   # Apple Silicon
-
-    steps:
-    - name: Checkout source
-      uses: actions/checkout@v4
-
-    - name: Install Homebrew dependencies (ARM64)
-      run: |
-        brew update
-        brew install \
-          sdl2 \
-          libpng \
-          jpeg \
-          zlib \
-          pkg-config \
-          cmake \
-          automake \
-          autoconf
-
-    - name: Build Darkplaces (ARM64)
-      run: |
-        export HOMEBREW_PREFIX="/opt/homebrew"
-        export CPPFLAGS="-I$HOMEBREW_PREFIX/opt/jpeg/include -I$HOMEBREW_PREFIX/opt/zlib/include"
-        export LDFLAGS="-L$HOMEBREW_PREFIX/opt/jpeg/lib -L$HOMEBREW_PREFIX/opt/zlib/lib"
-        export PKG_CONFIG_PATH="$HOMEBREW_PREFIX/opt/jpeg/lib/pkgconfig:$HOMEBREW_PREFIX/opt/zlib/lib/pkgconfig"
-        make -j$(sysctl -n hw.ncpu) sdl-release
-
-    - name: Upload ARM64 artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: darkplaces-sdl-arm64
-        path: ./darkplaces-sdl
-
-
-  darkplaces-intel:
-    runs-on: macos-15-intel   # new Intel runner
+    runs-on: ${{ matrix.runner }}
+    name: Darkplaces (${{ matrix.arch }})
 
     steps:
     - name: Checkout source
       uses: actions/checkout@v4
 
-    - name: Install Homebrew dependencies (Intel)
+    - name: Install Homebrew dependencies
       run: |
         brew update
-        brew install \
-          sdl2 \
-          libpng \
-          jpeg \
-          zlib \
-          pkg-config \
-          cmake \
-          automake \
-          autoconf
+        brew install sdl2 libpng jpeg zlib pkg-config libogg libvorbis dylibbundler
 
-    - name: Build Darkplaces (Intel)
+    - name: Build Darkplaces
       run: |
-        export HOMEBREW_PREFIX="/usr/local"
+        HOMEBREW_PREFIX="$(brew --prefix)"
         export CPPFLAGS="-I$HOMEBREW_PREFIX/opt/jpeg/include -I$HOMEBREW_PREFIX/opt/zlib/include"
         export LDFLAGS="-L$HOMEBREW_PREFIX/opt/jpeg/lib -L$HOMEBREW_PREFIX/opt/zlib/lib"
         export PKG_CONFIG_PATH="$HOMEBREW_PREFIX/opt/jpeg/lib/pkgconfig:$HOMEBREW_PREFIX/opt/zlib/lib/pkgconfig"
-        make -j$(sysctl -n hw.ncpu) sdl-release
+        make -j"$(sysctl -n hw.ncpu)" sdl-release
 
-    - name: Upload Intel artifact
+    - name: Bundle Darkplaces.app (SDL2 + Ogg/Vorbis included)
+      run: scripts/bundle-macos.sh
+
+    - name: Zip app bundle
+      run: ditto -c -k --sequesterRsrc --keepParent Darkplaces.app "Darkplaces-${{ matrix.arch }}.zip"
+
+    - name: Upload app bundle
       uses: actions/upload-artifact@v4
       with:
-        name: darkplaces-sdl-intel
-        path: ./darkplaces-sdl
+        name: Darkplaces-${{ matrix.arch }}
+        path: Darkplaces-${{ matrix.arch }}.zip
