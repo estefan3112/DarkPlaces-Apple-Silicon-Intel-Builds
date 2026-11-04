@@ -105,6 +105,7 @@ jobs:
       with:
         pattern: Darkplaces-*
         path: dist
+        skip-decompress: true  # keep our signed zips as they are, don't unpack them
 
     - name: Create tag and release
       env:
@@ -113,6 +114,7 @@ jobs:
         VERSION: ${{ inputs.version }}
       run: |
         set -euo pipefail
+        find dist -ls
         tag="${VERSION:-$(date -u +%Y.%m.%d)}"
         if gh release view "$tag" > /dev/null 2>&1; then
           echo "ERROR: a release '$tag' already exists - run again with another version"
